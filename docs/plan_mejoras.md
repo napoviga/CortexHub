@@ -4,7 +4,33 @@ Este documento establece la base de diseño, decisiones críticas y plan de desa
 
 ---
 
-## 1. Decisiones Críticas de Arquitectura (La Confrontación de Stacks)
+## 1. Reglas de Oro y Filosofía de Diseño (Odysseus Core)
+
+Antes de implementar cualquier mejora, es crucial mapear y respetar los lineamientos y "reglas de oro" que el creador original dejó implícitos en la estructura de Odysseus:
+
+1.  **Independencia Tecnológica y Zero-Build (Frontend Estático):**
+    El frontend en `static/` es 100% código estático nativo (HTML/CSS/JS). No contiene compiladores, webpack, ni bundlers (como se confirma en el `package.json` libre de scripts de construcción). Esto permite que el archivo `index.html` sea abierto directamente mediante doble clic en local y funcione de forma autónoma. Cualquier mejora visual o cambio de idioma debe respetar este formato nativo.
+2.  **Interactividad vía Iframe / Sandbox (Evitar GUIs Locales):**
+    Odysseus no soporta interfaces de terminal interactivas (TTY) o GUIs basadas en Python (ej: Pygame, Tkinter) en su contenedor. Para cualquier herramienta interactiva, la regla de oro es generar un archivo HTML estático autocontenido con `<canvas>` y JS en línea, guardándolo con `create_document` para que el frontend lo previsualice en un iframe sandboxed interactivo.
+3.  **Convención de Enlaces Dinámicos (Markdown Clickable Anchors):**
+    Toda referencia que haga el agente a entidades del sistema (chats, documentos, tareas, notas, correos, habilidades, etc.) en sus respuestas finales debe formatearse obligatoriamente con enlaces dinámicos markdown específicos (ej: `[Nombre](#session-<id>)`, `[Título](#document-<id>)`, `[Nombre](#skill-<name>)`). El frontend lee estos hashes para abrirlos en las pestañas interactivas laterales.
+4.  **Cifrado Ciego de Credenciales (Secret Storage):**
+    Toda contraseña (SMTP/IMAP), llave de API y token OAuth de usuario se almacena Fernet-encriptada de forma transparente en la base de datos SQLite (`app.db`). La clave de cifrado reside físicamente en `data/.app_key` con permisos de seguridad restringidos (modo 0o600) y jamás debe agregarse a Git.
+5.  **Aislamiento y Hardening de Prompts (Untrusted Context Policy):**
+    Todo texto proveniente de fuentes externas (resultados web, correos leídos, RAG, memorias, skills) se considera **dato, no instrucción** y se encapsula estrictamente dentro de delimitadores `<<<UNTRUSTED_SOURCE_DATA>>>` para evitar inyecciones indirectas.
+6.  **Escalación y Aprendizaje Dinámico (Teacher Escalation):**
+    En modo agente, los fallos del modelo local/estudiante (Ollama) son detectados por Regex o LLMs, delegando de forma transparente en un modelo "Profesor" superior en la nube (SOTA). Este no solo recibe la consulta, sino que instila una habilidad duradera (`SKILL.md`) para que el estudiante aprenda a resolverlo solo en el futuro.
+7.  **Compacción y Preservación de Contexto:**
+    La ventana de contexto tiene un límite estricto de `MAX_CONTEXT_MESSAGES = 90`. Al superarlo, un proceso de compactor asíncrono destila el historial antiguo en un resumen estructurado para evitar la saturación de tokens y el olvido del agente.
+8.  **Disciplina de Herramientas (No Overrides Genéricos):**
+    Nunca deben usarse comandos de shell genéricos (`bash`/`python`) para tareas donde existan herramientas específicas provistas en el proyecto (ej: no usar `curl`/`requests` para buscar en la web, usar `web_search`/`web_fetch`; no usar `sed`/`awk`/`redirects` para modificar archivos, usar `edit_file` con diffs exactos).
+9.  **Tareas Asíncronas en Segundo Plano (`#!bg`):**
+    Cualquier comando en bash que tome más de 20s debe utilizar el tag `#!bg` en su primera línea para correr en segundo plano asíncronamente y no bloquear el chat.
+
+---
+
+## 2. Decisiones Críticas de Arquitectura (La Confrontación de Stacks)
+
 
 Existe una contradicción entre el stack técnico definido en tu informe (`Next.js 16 + PostgreSQL + pgvector + Vercel AI SDK`) y el requisito de `"no romper el funcionamiento autónomo desde HTML"` heredado del proyecto Odysseus (`FastAPI + SQLite + HTML/JS estático`).
 
@@ -24,7 +50,7 @@ Implementaremos el frontend en la estructura de plantillas HTML/JS de Odysseus m
 
 ---
 
-## 2. Definición del Motor de Consenso (Bucle de Deliberación)
+## 3. Definición del Motor de Consenso (Bucle de Deliberación)
 
 El flujo de Consenso IA se estructurará en el backend de FastAPI en 4 fases asíncronas:
 
@@ -58,7 +84,7 @@ graph TD
 
 ---
 
-## 3. Especificación de Idiomas y Variables Visuales (Modo Autónomo)
+## 4. Especificación de Idiomas y Variables Visuales (Modo Autónomo)
 
 Para cumplir con la filosofía de sencillez y soporte bilingüe sin romper el HTML local, estructuraremos la carga de recursos de la siguiente manera:
 
@@ -93,7 +119,7 @@ Para cumplir con la filosofía de sencillez y soporte bilingüe sin romper el HT
 
 ---
 
-## 4. Despliegue en la Nube y Almacenamiento "Out-of-the-Box"
+## 5. Despliegue en la Nube y Almacenamiento "Out-of-the-Box"
 
 Para asegurar un arranque inmediato del servidor sin configuraciones complejas por parte de nuevos usuarios:
 
@@ -108,7 +134,7 @@ Para asegurar un arranque inmediato del servidor sin configuraciones complejas p
 
 ---
 
-## 5. Roadmap de Implementación (Ordenado por Complejidad)
+## 6. Roadmap de Implementación (Ordenado por Complejidad)
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐

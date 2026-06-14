@@ -82,6 +82,15 @@ graph TD
     *   **Menciones de coincidencia** en `agreements`.
     *   **Correcciones aportadas** en las rondas de refinamiento.
 
+### 🛡️ Reglas de Seguridad y Eficiencia Aplicadas al Consenso:
+1.  **Aislamiento de Respuestas de Modelos (Prevención de Inyecciones):**
+    Dado que las respuestas de los modelos en el bucle de deliberación pueden contener inyecciones indirectas (provenientes de RAG, correos o búsquedas), el prompt que recibe el *Juez LLM* debe encapsular obligatoriamente las respuestas de los otros modelos dentro del marcador `<<<UNTRUSTED_SOURCE_DATA>>>`. Esto protege al Juez de ser manipulado por directivas maliciosas originadas en otros modelos.
+2.  **Prevención de la Saturación de Contexto (Evitar Colapso del Compactador):**
+    El bucle de consenso genera múltiples iteraciones (2-3 respuestas por ronda más las evaluaciones del juez). Guardar todo esto en el historial de chat de la sesión saturará de inmediato el límite de `MAX_CONTEXT_MESSAGES = 90` y activará el compactador de contexto de forma innecesaria, eliminando historial valioso.
+    *   *Solución:* Las deliberaciones intermedias y respuestas crudas **no** se guardarán como mensajes ordinarios en la sesión. Se persistirán únicamente como metadatos estructurados (JSON) asociados al mensaje final o en la tabla de comparaciones. El chat principal solo registrará la pregunta del usuario y la síntesis final de consenso.
+3.  **Uso de Conexiones Nativas (`llm_core`):**
+    Las llamadas concurrentes deben ejecutarse a través de `llm_call_async` en el backend, heredando automáticamente las directivas de TLS, la auditoría de tokens y el cifrado de claves.
+
 ---
 
 ## 4. Especificación de Idiomas y Variables Visuales (Modo Autónomo)
